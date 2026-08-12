@@ -5,7 +5,7 @@ and a unified QualityGate integration.
 
 ## Author
 
-- **Yoandis Rodríguez (Andy)**
+- **Yoandis Rodríguez**
 - Email: curvadigital0@gmail.com
 
 ## License
