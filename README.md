@@ -195,6 +195,28 @@ Si encuentras un error, por favor repórtalo por escrito a
 
 Esto ayuda a corregir el código de forma eficiente.
 
-## Contacto
+## Screenshots
+
+
+
+![Capability Layer](screenshot-capability-layer.jpg)
+
+
+
+
+
+![Forge Queue](screenshot-forge-queue.jpg)
+
+
+
+
+
+![Transaction Engine](screenshot-transaction-engine.jpg)
+
+
+
+
+
+![Performance Analyzer](screenshot-performance-analyzer.jpg) ## Contacto
 
 Yoandis Rodríguez — curvadigital0@gmail.com
