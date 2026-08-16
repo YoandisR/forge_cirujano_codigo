@@ -929,6 +929,43 @@
     .pa-event-arrow{ color: #ff8c42; }
     .pa-event-to   { color: #3dffa0; font-family: monospace; }
     .pa-event-code { color: #ffcc00; font-family: monospace; }
+
+    /* ============================================================================
+       PA-EXT · PERFORMANCE ANALYZER EXTRACTION (panel integrado)
+       Scoped bajo #pa-extraction para no pisar .btn/.stat-* globales.
+       ============================================================================ */
+    #pa-extraction { position:relative; z-index:10; display:flex; flex-direction:column; gap:12px; }
+    #pa-extraction .panel { background:#0a0204; border-radius:14px; padding:16px; text-align:left; border:1px solid #3a1418; }
+    #pa-extraction .panel-purple { border-color:rgba(168,85,247,0.4); box-shadow:0 0 30px rgba(168,85,247,0.12); }
+    #pa-extraction .panel-title { font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:2px; margin-bottom:4px; font-family:'Courier New',monospace; }
+    #pa-extraction .panel-sub { font-size:10px; color:#6b4a4e; margin-bottom:12px; letter-spacing:.5px; }
+    #pa-extraction .t-purple { color:#a855f7; }
+    #pa-extraction .score-ring { position:relative; width:64px; height:64px; flex-shrink:0; }
+    #pa-extraction .score-ring svg { width:100%; height:100%; transform:rotate(-90deg); }
+    #pa-extraction .score-val { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:14px; font-weight:700; }
+    #pa-extraction .stat-box { background:#0a0204; border:1px solid #2a1014; border-radius:8px; padding:8px 6px; text-align:center; flex:1; min-width:60px; }
+    #pa-extraction .stat-box .stat-label { font-size:8px; color:#6b4a4e; text-transform:uppercase; letter-spacing:1px; }
+    #pa-extraction .stat-box .stat-value { font-size:16px; font-weight:700; font-family:monospace; margin-top:2px; text-shadow:none; }
+    #pa-extraction .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:6px; }
+    #pa-extraction .flex { display:flex; }
+    #pa-extraction .items-center { align-items:center; }
+    #pa-extraction .gap-2 { gap:8px; }
+    #pa-extraction .gap-3 { gap:12px; }
+    #pa-extraction .flex-1 { flex:1; }
+    #pa-extraction .scroll-area { max-height:160px; overflow-y:auto; }
+    #pa-extraction .pulse-wrap { margin-top:8px; border:1px solid #1a0810; border-radius:4px; background:#000; overflow:hidden; position:relative; height:32px; }
+    #pa-extraction .pulse-wrap canvas { position:absolute; inset:0; width:100%; height:100%; }
+    #pa-extraction .perf-bar { height:6px; background:#1a0810; border-radius:9999px; overflow:hidden; flex:1; }
+    #pa-extraction .perf-fill { height:100%; border-radius:9999px; transition:width .5s ease, background-color .5s ease; }
+    #pa-extraction .console { background:#000; border:1px solid #1a0810; border-radius:6px; padding:6px 8px; font-size:8px; color:#a8858a; text-align:left; max-height:140px; overflow-y:auto; line-height:1.5; font-family:monospace; margin-top:8px; white-space:pre-wrap; word-break:break-all; }
+    #pa-extraction .row-between { display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+    #pa-extraction .btn-danger { border-color:#ff2d3a; color:#ff2d3a; background:rgba(255,45,58,0.1); }
+    #pa-extraction .btn-danger:hover { background:rgba(255,45,58,0.2); }
+    #pa-extraction .text-8 { font-size:8px; }
+    #pa-extraction .text-9 { font-size:9px; }
+    #pa-extraction .text-10 { font-size:10px; }
+    #pa-extraction .text-muted { color:#6b4a4e; }
+    #pa-extraction .text-dim { color:#5a3a3e; }
   </style>
 </head>
 <body>
@@ -2027,88 +2064,56 @@ Para registrar tests in-situ: K.TestRunner.register({name, tests:[{name,fn}]}).<
         </div>
       </div><!-- /.ix-module LC-01 -->
 
-      <!-- PA-01 · PERFORMANCE ANALYZER
-           Source of truth = IX.getObserveStats() (kernel-produced).
-           The .ix-module wrapper is just a viewer; the model itself
-           is computed by IX.PerformanceModel.compute (pure function).
-           The RECALCULAR button calls IX.refreshModule('PA-01') to
-           re-read the snapshot. No setInterval, no requestAnimationFrame. -->
-      <div class="ix-module" data-ix-module="PA-01">
-        <div data-ix-layer="identity">
-          <div class="ix-prefix">PERFORMANCE</div>
-          <div class="ix-code">PA-01</div>
-          <div class="ix-name">Performance Analyzer</div>
-          <div class="ix-subtitle">v3.1+ · diagnóstico derivado</div>
-        </div>
-        <div data-ix-layer="function">
-          <div class="ix-layer-label">FUNCTION</div>
-          <div class="ix-layer-value">Consume IX.getObserveStats() y aplica IX.PerformanceModel.compute (puro, determinista). Score + métricas + cuellos de botella.</div>
-        </div>
-        <div data-ix-layer="state">
-          <div class="ix-layer-label">STATE</div>
-          <div class="ix-layer-value"><span class="ix-state-badge ix-state-IDLE" id="pa01-state-badge">IDLE</span></div>
-        </div>
-        <div data-ix-layer="data">
-          <div class="ix-layer-label">DATA</div>
-          <div class="ix-layer-value">
-            <span id="pa01-tick" style="display:none">init</span>
-            <div class="pa-grid">
-              <div class="pa-ring">
-                <svg viewBox="0 0 64 64">
-                  <circle class="pa-ring-track" cx="32" cy="32" r="28"></circle>
-                  <circle id="pa01-ring" class="pa-ring-value" cx="32" cy="32" r="28" stroke-dasharray="0 176"></circle>
-                </svg>
-                <div class="pa-ring-num" id="pa01-score">--</div>
-              </div>
-              <div class="pa-stats">
-                <div class="pa-stat"><div class="pa-stat-label">AVG CPU</div><div class="pa-stat-value" id="pa01-cpu" style="color:#10b981">--</div></div>
-                <div class="pa-stat"><div class="pa-stat-label">AVG MEM</div><div class="pa-stat-value" id="pa01-mem" style="color:#f59e0b">--</div></div>
-                <div class="pa-stat"><div class="pa-stat-label">LATENCY</div><div class="pa-stat-value" id="pa01-lat" style="color:#3b82f6">--</div></div>
-                <div class="pa-stat"><div class="pa-stat-label">THR</div><div class="pa-stat-value" id="pa01-tput">--</div></div>
-              </div>
+      <!-- ═══════════ PA-EXT · PERFORMANCE ANALYZER EXTRACTION (integrado) ═══════════ -->
+      <div id="pa-extraction" style="width:100%;max-width:520px;margin:0 auto 10px">
+        <div class="panel panel-purple" id="perf-panel">
+          <h3 class="panel-title t-purple" id="t-perf-title">📈 PERFORMANCE ANALYZER</h3>
+          <p class="panel-sub" id="t-perf-desc">Deep performance analytics with bottleneck detection and optimization scoring.</p>
+          <div class="flex gap-3" style="align-items:center;margin-bottom:12px">
+            <div class="score-ring">
+              <svg viewBox="0 0 64 64">
+                <circle cx="32" cy="32" r="28" fill="none" stroke="#1a0810" stroke-width="4"/>
+                <circle id="perf-ring" cx="32" cy="32" r="28" fill="none" stroke="#10b981" stroke-width="4" stroke-linecap="round" stroke-dasharray="137 176"/>
+              </svg>
+              <div class="score-val" style="color:#10b981" id="perf-score">78</div>
             </div>
-            <div class="pa-list" id="pa01-list">
-              <div style="color:#5a3a3e;font-size:9px;padding:6px;text-align:center">— sin telemetría —</div>
+            <div class="flex-1 grid-2">
+              <div class="stat-box"><div class="stat-label">AVG CPU</div><div class="stat-value" style="font-size:12px;color:#10b981" id="perf-avg-cpu">18%</div></div>
+              <div class="stat-box"><div class="stat-label">AVG MEM</div><div class="stat-value" style="font-size:12px;color:#f59e0b" id="perf-avg-mem">33%</div></div>
+              <div class="stat-box"><div class="stat-label">LATENCY</div><div class="stat-value" style="font-size:12px;color:#3b82f6" id="perf-avg-lat">4ms</div></div>
+              <div class="stat-box"><div class="stat-label">THROUGHPUT</div><div class="stat-value" style="font-size:12px" id="perf-tput">0/s</div></div>
             </div>
-            <button class="pa-btn" id="pa01-recalc" type="button">RECALCULAR</button>
           </div>
+          <div class="scroll-area" id="perf-modules" style="max-height:100px"></div>
         </div>
-      </div><!-- /.ix-module PA-01 -->
 
-      <!-- PA-02 · OBSERVER LOG
-           Source of truth = telemetry delta buffer (spec-private).
-           The default text observer triggers read() whenever the
-           internal #pa02-tick node changes. The LIMPIAR button
-           calls IX.refreshModule('PA-02') and then clearBuffer(). -->
-      <div class="ix-module" data-ix-module="PA-02">
-        <div data-ix-layer="identity">
-          <div class="ix-prefix">OBSERVER</div>
-          <div class="ix-code">PA-02</div>
-          <div class="ix-name">Observer Log</div>
-          <div class="ix-subtitle">v3.1+ · event stream · buffer cap 50</div>
+        <!-- TELEMETRY PULSE -->
+        <div class="pulse-wrap">
+          <canvas id="pulse-canvas"></canvas>
         </div>
-        <div data-ix-layer="function">
-          <div class="ix-layer-label">FUNCTION</div>
-          <div class="ix-layer-value">Registra transiciones (from→to) por código cuando IX.getObserveStats() reporta deltas. Buffer privado FIFO con cap 50.</div>
-        </div>
-        <div data-ix-layer="state">
-          <div class="ix-layer-label">STATE</div>
-          <div class="ix-layer-value"><span class="ix-state-badge ix-state-IDLE" id="pa02-state-badge">IDLE</span></div>
-        </div>
-        <div data-ix-layer="data">
-          <div class="ix-layer-label">DATA</div>
-          <div class="ix-layer-value">
-            <span id="pa02-tick" style="display:none">init</span>
-            <div class="pa-list" id="pa02-list" style="max-height:160px">
-              <div style="color:#5a3a3e;font-size:9px;padding:6px;text-align:center">— sin eventos —</div>
-            </div>
-            <div class="row-between" style="margin-top:6px">
-              <span class="text-8 text-dim" id="pa02-count" style="font-size:8.5px;color:#6b4a4e">0 entries</span>
-              <button class="pa-btn" id="pa02-clear" type="button">LIMPIAR</button>
-            </div>
+
+        <!-- ACTIVITY LOG (OBSERVER) -->
+        <div class="panel panel-purple">
+          <h3 class="panel-title t-purple" id="t-log-title">📖 OBSERVADOR</h3>
+          <p class="panel-sub" id="t-log-desc">Reactive observer pattern for real-time module event streaming.</p>
+          <div class="console" id="activity-log" style="max-height:160px"></div>
+          <div class="row-between" style="margin-top:8px">
+            <span class="text-8 text-dim" id="log-count">0 entries</span>
+            <button class="btn btn-danger" id="t-clear" type="button">CLEAR</button>
           </div>
         </div>
-      </div><!-- /.ix-module PA-02 -->
+      </div><!-- /#pa-extraction -->
+
+      <!-- ═══════════ SOLD ARTIFACTS · visual record of Forge output ═══════════ -->
+      <div class="panel panel-green" id="sold-artifacts-panel" style="margin-top:10px">
+        <h3 class="panel-title t-green" id="t-sold-title">🔧 SOLD ARTIFACTS</h3>
+        <p class="panel-sub" id="t-sold-desc">Visual record of every artifact produced by Forge solder operations. Capsule shows op + node state; expand to see details.</p>
+        <div id="sold-list" class="scroll-area" style="max-height:400px"></div>
+        <div class="row-between" style="margin-top:8px">
+          <span class="text-8 text-dim" id="sold-count">0 artifacts</span>
+          <button class="btn btn-danger" id="t-sold-clear" type="button">LIMPIAR</button>
+        </div>
+      </div>
 
       <!-- ─── 8. CAPABILITY LAYER ─────────────────────────────
            Pipeline en cascada:  Manifest → RequirementValidator
@@ -2218,6 +2223,10 @@ Para registrar tests in-situ: K.TestRunner.register({name, tests:[{name,fn}]}).<
         <div id="fw-reg-detail-wrap" style="display:none">
           <div style="font-size:9px;color:#6b4a4e;letter-spacing:1px;margin-bottom:3px">⬢ DETAIL · <span id="fw-reg-detail-id" style="color:#ff2d3a"></span></div>
           <div id="fw-reg-detail" style="font-size:9px;color:#a8858a;line-height:1.6;background:#0f0507;border:1px solid #1a0810;border-radius:4px;padding:8px;max-height:160px;overflow-y:auto;text-align:left;white-space:pre-wrap;font-family:monospace"></div>
+          <div style="margin-top:8px">
+            <div style="font-size:9px;color:#ffcc00;letter-spacing:1px;margin-bottom:4px">⬡ CÓDIGO FUENTE</div>
+            <pre id="fw-reg-code" style="font-size:9px;color:#a8858a;line-height:1.6;background:#0a0204;border:1px solid #1a0810;border-radius:4px;padding:8px;max-height:200px;overflow-y:auto;text-align:left;white-space:pre-wrap;font-family:monospace;margin:0">—</pre>
+          </div>
         </div>
 
         <!-- Services index -->
@@ -9228,7 +9237,8 @@ Para registrar tests in-situ: K.TestRunner.register({name, tests:[{name,fn}]}).<
             buildMs: e.buildMs,
             lastEvent: e.lastEvent,
             lastEventTs: e.lastEventTs,
-            events: [...e.events]
+            events: [...e.events],
+            code: e.code || ''
           };
         }
       }
@@ -9315,6 +9325,7 @@ Para registrar tests in-situ: K.TestRunner.register({name, tests:[{name,fn}]}).<
             regDetailWrap: document.getElementById('fw-reg-detail-wrap'),
             regDetailId: document.getElementById('fw-reg-detail-id'),
             regDetail:   document.getElementById('fw-reg-detail'),
+            regCode:     document.getElementById('fw-reg-code'),
             regServices: document.getElementById('fw-reg-services')
           };
 
@@ -9930,6 +9941,7 @@ Para registrar tests in-situ: K.TestRunner.register({name, tests:[{name,fn}]}).<
             lines.push('  ' + new Date(ev.ts).toLocaleTimeString('en-GB') + ' · ' + ev.name + (ev.data ? '  ' + JSON.stringify(ev.data) : ''));
           });
           this.$.regDetail.textContent = lines.join('\n');
+          this.$.regCode.textContent = d.code || '— sin código —';
         }
 
         // ── Pintar panel de Capability Layer ──────────────────
@@ -12990,103 +13002,6 @@ Para registrar tests in-situ: K.TestRunner.register({name, tests:[{name,fn}]}).<
     // explicitly declare the old version will be rejected at the
     // gate via assertCompatibility.
 
-    // ─── PA-01 + PA-02 button handlers ────────────────────────────
-    // These handlers call IX.refreshModule() which triggers the
-    // spec's observer tick. They do NOT introduce observation
-    // mechanisms (I13) and do NOT mutate the kernel.
-    function _pa01Render() {
-      var s = window.IX.inspect('PA-01');
-      if (!s) return;
-      var m = s.snapshot.signals.model.value;
-      var ring = document.getElementById('pa01-ring');
-      var scoreEl = document.getElementById('pa01-score');
-      var cpu = document.getElementById('pa01-cpu');
-      var mem = document.getElementById('pa01-mem');
-      var lat = document.getElementById('pa01-lat');
-      var tput = document.getElementById('pa01-tput');
-      var list = document.getElementById('pa01-list');
-      if (ring) {
-        var circ = 2 * Math.PI * 28; // 175.93
-        var filled = (m.score / 100) * circ;
-        ring.setAttribute('stroke-dasharray', filled.toFixed(1) + ' ' + circ.toFixed(1));
-        ring.setAttribute('stroke', m.score >= 70 ? '#10b981' : (m.score >= 40 ? '#f59e0b' : '#ff2d3a'));
-      }
-      if (scoreEl) scoreEl.textContent = String(m.score);
-      if (cpu) cpu.textContent = m.cpu + '%';
-      if (mem) mem.textContent = m.memory + '%';
-      if (lat) lat.textContent = m.latency + 'ms';
-      if (tput) tput.textContent = m.throughput + '/s';
-      if (list) {
-        if (m.bottlenecks.length === 0) {
-          list.innerHTML = '<div style="color:#5a3a3e;font-size:9px;padding:6px;text-align:center">— sin telemetría —</div>';
-        } else {
-          var html = '';
-          for (var i = 0; i < m.bottlenecks.length; i++) {
-            var b = m.bottlenecks[i];
-            html += '<div class="pa-list-row"><span class="pa-list-code">' + b.code + '</span><span class="pa-list-pct">' + b.pct + '%</span></div>';
-          }
-          list.innerHTML = html;
-        }
-      }
-    }
-    function _pa02Render() {
-      var s = window.IX.inspect('PA-02');
-      if (!s) return;
-      var buf = s.snapshot.signals.buffer.value;
-      var list = document.getElementById('pa02-list');
-      var count = document.getElementById('pa02-count');
-      if (count) count.textContent = buf.length + ' entries';
-      if (list) {
-        if (buf.length === 0) {
-          list.innerHTML = '<div style="color:#5a3a3e;font-size:9px;padding:6px;text-align:center">— sin eventos —</div>';
-        } else {
-          var html = '';
-          // Show latest first
-          for (var i = buf.length - 1; i >= 0; i--) {
-            var e = buf[i];
-            var ago = ((typeof performance !== 'undefined' ? performance.now() : Date.now()) - e.ts) / 1000;
-            html += '<div class="pa-event">'
-                  + '<span class="pa-event-ts">' + ago.toFixed(1) + 's</span>'
-                  + '<span class="pa-event-code">' + e.code + '</span>'
-                  + '<span class="pa-event-from">' + e.from + '</span>'
-                  + '<span class="pa-event-arrow">→</span>'
-                  + '<span class="pa-event-to">' + e.to + '</span>'
-                  + '</div>';
-          }
-          list.innerHTML = html;
-        }
-      }
-    }
-    // Hook into renderBadge to also render the data layer of PA-01/PA-02.
-    // renderBadge is called by the kernel after every classify. We
-    // extend it (monkey-patch the local reference, not IX) so the
-    // DATA layer reflects the latest snapshot.
-    var _origRenderBadge = renderBadge;
-    renderBadge = function(code) {
-      _origRenderBadge(code);
-      if (code === 'PA-01') _pa01Render();
-      else if (code === 'PA-02') _pa02Render();
-    };
-    // Button handlers
-    var _pa01Btn = document.getElementById('pa01-recalc');
-    if (_pa01Btn) _pa01Btn.addEventListener('click', function() {
-      // Mutate the internal node so the default observer fires.
-      var tick = document.getElementById('pa01-tick');
-      if (tick) tick.textContent = String(performance.now());
-      window.IX.refreshModule('PA-01');
-    });
-    var _pa02Btn = document.getElementById('pa02-clear');
-    if (_pa02Btn) _pa02Btn.addEventListener('click', function() {
-      // Force a refresh first (to capture the current state into
-      // the snapshot), then clear the buffer. The next read tick
-      // will see an empty buffer.
-      window.IX.refreshModule('PA-02');
-      var spec = window.IX.MODULE_SPECS['PA-02'];
-      if (spec && typeof spec.clearBuffer === 'function') spec.clearBuffer();
-      var tick = document.getElementById('pa02-tick');
-      if (tick) tick.textContent = String(performance.now());
-      window.IX.refreshModule('PA-02');
-    });
 
     for (var code in MODULE_SPECS) {
       bindModule(code);
@@ -13131,6 +13046,353 @@ Para registrar tests in-situ: K.TestRunner.register({name, tests:[{name,fn}]}).<
       if (window.IX && typeof window.IX.bindModule === 'function') {
         var ok = window.IX.bindModule('CP-01');
         if (!ok && console && console.warn) console.warn('[IX] CP-01 deferred bind failed');
+      }
+    })();
+  </script>
+  <script>
+    // ─── PA-EXT · PERFORMANCE ANALYZER EXTRACTION (panel integrado) ───
+    // Scoped IIFE: no contamina el resto del kernel. El botón CLEAR se
+    // enlaza por addEventListener (no onclick global) para que funcione
+    // aunque clearActivityLog viva dentro del closure.
+    (function() {
+      'use strict';
+
+      var state = {
+        cpuLoad: 32,
+        memoryUsage: 48,
+        eventCount: 0,
+        healthStatus: { ok: 4, degraded: 1, failed: 0 },
+        t0: Date.now(),
+        activityLog: [],
+        logSeq: 0,
+        modules: [
+          { id:'mod-bus-01',       code:'BS-01', name:'Event Bus',        health:{cpu:12,mem:34,latency:2} },
+          { id:'mod-forge-01',     code:'FG-01', name:'Forge Engine',     health:{cpu:28,mem:56,latency:5} },
+          { id:'mod-extractor-01', code:'EX-01', name:'Source Extractor', health:{cpu:18,mem:42,latency:3} },
+          { id:'mod-observer-01',  code:'OB-01', name:'Observer',         health:{cpu: 8,mem:22,latency:1} },
+          { id:'mod-supervisor-01',code:'SP-01', name:'Supervisor',       health:{cpu: 5,mem:15,latency:8} }
+        ]
+      };
+
+      function $(id){ return document.getElementById(id); }
+      function setText(id,val){ var el=$(id); if(el) el.textContent=val; }
+      function randBetween(min,max){ return Math.floor(Math.random()*(max-min+1))+min; }
+
+      function addLog(event,status,duration){
+        state.logSeq++;
+        var entry={
+          id:'log-'+state.logSeq, seq:state.logSeq, event:event, category:'system',
+          status:status||'info', rel:Date.now()-state.t0,
+          duration:duration||null
+        };
+        state.activityLog.unshift(entry);
+        if(state.activityLog.length>200) state.activityLog.pop();
+        renderActivityLog();
+      }
+
+      function renderPerformance(){
+        var modules=state.modules;
+        var avgCpu=modules.length>0?Math.round(modules.reduce(function(s,m){return s+m.health.cpu;},0)/modules.length):0;
+        var avgMem=modules.length>0?Math.round(modules.reduce(function(s,m){return s+m.health.mem;},0)/modules.length):0;
+        var avgLat=modules.length>0?Math.round(modules.reduce(function(s,m){return s+m.health.latency;},0)/modules.length):0;
+
+        var perfScore=Math.round(Math.max(0,100-state.cpuLoad)*0.3+Math.max(0,100-state.memoryUsage)*0.3+(state.healthStatus.ok/Math.max(1,modules.length)*100)*0.4);
+
+        setText('perf-avg-cpu', avgCpu+'%');
+        setText('perf-avg-mem', avgMem+'%');
+        setText('perf-avg-lat', avgLat+'ms');
+        setText('perf-tput', (state.eventCount>0?Math.round(state.eventCount/Math.max(1,(Date.now()-state.t0)/1000)):0)+'/s');
+        setText('perf-score', perfScore);
+
+        var scoreEl=$('perf-score');
+        var ringEl=$('perf-ring');
+        if(scoreEl){ scoreEl.style.color=perfScore>=80?'#10b981':perfScore>=60?'#f59e0b':'#ef4444'; }
+        if(ringEl){
+          ringEl.setAttribute('stroke-dasharray',(perfScore/100)*176+' 176');
+          ringEl.setAttribute('stroke',perfScore>=80?'#10b981':perfScore>=60?'#f59e0b':'#ef4444');
+        }
+
+        var perfHtml='';
+        state.modules.slice(0,5).forEach(function(m){
+          var barColor=m.health.cpu<40?'#10b981':m.health.cpu<70?'#f59e0b':'#ef4444';
+          perfHtml+='<div class="flex gap-2 items-center text-8" style="margin-bottom:2px">'+
+            '<span class="text-muted" style="width:32px">'+m.code+'</span>'+
+            '<div class="perf-bar"><div class="perf-fill" style="width:'+m.health.cpu+'%;background:'+barColor+'"></div></div>'+
+            '<span class="text-dim" style="width:32px;text-align:right">'+m.health.cpu+'%</span>'+
+          '</div>';
+        });
+        var el=$('perf-modules'); if(el) el.innerHTML=perfHtml;
+      }
+
+      function renderActivityLog(){
+        var html='';
+        if(state.activityLog.length===0){
+          html='<div class="text-dim text-center" style="padding:8px">Inactive</div>';
+        } else {
+          state.activityLog.slice(0,20).forEach(function(entry){
+            var color=entry.status==='error'?'#ef4444':entry.status==='warn'?'#f59e0b':'rgba(168,133,138,0.7)';
+            html+='<div class="text-8" style="display:flex;gap:4px;padding:2px 0;border-bottom:1px solid rgba(10,2,4,0.5)">'+
+              '<span class="text-dim" style="width:24px;text-align:right">'+entry.seq.toString().padStart(3,'0')+'</span>'+
+              '<span style="color:'+color+'">'+entry.event+'</span>'+
+              '<span class="text-dim" style="margin-left:auto;opacity:0.5">'+(entry.rel/1000).toFixed(1)+'s</span>'+
+              (entry.duration?'<span style="color:rgba(16,185,129,0.6)">'+entry.duration+'ms</span>':'')+
+            '</div>';
+          });
+        }
+        var el=$('activity-log'); if(el) el.innerHTML=html;
+        setText('log-count', state.activityLog.length+' entries');
+      }
+
+      function clearActivityLog(){
+        state.activityLog=[];
+        state.logSeq=0;
+        renderActivityLog();
+      }
+
+      var pulseData=[];
+      function drawPulse(){
+        var canvas=$('pulse-canvas'); if(!canvas) return requestAnimationFrame(drawPulse);
+        var rect=canvas.parentElement.getBoundingClientRect();
+        var w=rect.width,h=rect.height;
+        if(canvas.width!==w*2||canvas.height!==h*2){canvas.width=w*2;canvas.height=h*2;}
+        var ctx=canvas.getContext('2d'),W=w,H=h;ctx.clearRect(0,0,W,H);
+
+        pulseData.push(Math.sin(Date.now()*0.003)*0.3+Math.cos(Date.now()*0.007)*0.2+Math.random()*0.3);
+        if(pulseData.length>120) pulseData.shift();
+
+        ctx.strokeStyle='rgba(58,20,24,0.3)';ctx.lineWidth=0.5;
+        for(var y=0;y<H;y+=8){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+        var mid=H/2;
+        ctx.beginPath();
+        for(var i=0;i<pulseData.length;i++){
+          var x=(i/pulseData.length)*W;
+          var y=mid-pulseData[i]*mid*0.8;
+          if(i===0) ctx.moveTo(x,y);else ctx.lineTo(x,y);
+        }
+        ctx.strokeStyle='#ff2d3a';ctx.lineWidth=1.5;ctx.shadowColor='#ff2d3a';ctx.shadowBlur=8;ctx.stroke();ctx.shadowBlur=0;
+
+        ctx.lineTo(W,mid);ctx.lineTo(0,mid);ctx.closePath();
+        var grad=ctx.createLinearGradient(0,0,0,H);
+        grad.addColorStop(0,'rgba(255,45,58,0.15)');grad.addColorStop(0.5,'rgba(255,45,58,0.05)');grad.addColorStop(1,'rgba(255,45,58,0.15)');
+        ctx.fillStyle=grad;ctx.fill();
+
+        requestAnimationFrame(drawPulse);
+      }
+
+      function tick(){
+        var cpuJitter=randBetween(-3,3);
+        var memJitter=randBetween(-2,2);
+        state.cpuLoad=Math.max(5,Math.min(95,state.cpuLoad+cpuJitter));
+        state.memoryUsage=Math.max(10,Math.min(90,state.memoryUsage+memJitter));
+
+        state.modules.forEach(function(m){
+          m.health.cpu=Math.max(1,Math.min(99,m.health.cpu+randBetween(-2,2)));
+          m.health.mem=Math.max(1,Math.min(99,m.health.mem+randBetween(-1,1)));
+          m.health.latency=Math.max(1,m.health.latency+(Math.random()>0.9?1:0));
+        });
+
+        renderPerformance();
+      }
+
+      function initAll(){
+        var clearBtn=$('t-clear');
+        if(clearBtn) clearBtn.addEventListener('click', clearActivityLog);
+        window.clearActivityLog = clearActivityLog;
+        renderPerformance();
+        renderActivityLog();
+        addLog('forge.graph.loaded','info');
+        drawPulse();
+        setInterval(tick,1000);
+        initSoldArtifacts();
+      }
+
+      // ─── SOLD ARTIFACTS · collector + panel (desacoplado del kernel) ───
+      // Honestidad: el collector NO inventa código. Este archivo (KF v3.1)
+      // no usa un grafo Forge; usa el sistema de módulos IX (IX.bindModule,
+      // IX.refreshModule). El collector captura snapshots via IX.inspect()
+      // y emite un artifact SOLO cuando un módulo pasa de un estado a otro
+      // (transición real). El "code" que muestra la cápsula es el snapshot
+      // serializado del módulo, marcado como MODULE SNAPSHOT (no se inventa
+      // código fuente que el kernel no haya producido).
+      var stateSold = {
+        artifacts: [],
+        seq: 0,
+        lastSnapshotByCode: Object.create(null)
+      };
+
+      function initSoldArtifacts(){
+        var clearBtn = $('t-sold-clear');
+        if(clearBtn) clearBtn.addEventListener('click', function(){
+          stateSold.artifacts = [];
+          stateSold.seq = 0;
+          renderSoldArtifacts();
+        });
+        // Snapshot inicial de cada módulo ya bind-eado
+        snapshotAllModulesOnce();
+        // Polling: detectar transiciones reales (from -> to)
+        setInterval(snapshotModulesForChanges, 500);
+        renderSoldArtifacts();
+      }
+
+      function snapshotAllModulesOnce(){
+        if(!window.IX || typeof window.IX.listBound !== 'function') return;
+        try {
+          var bound = window.IX.listBound();
+          if(!bound || !bound.length) return;
+          bound.forEach(function(code){
+            var s = window.IX.inspect(code);
+            if(s && s.snapshot){
+              stateSold.lastSnapshotByCode[code] = s.snapshot.snapId || 0;
+            }
+          });
+        } catch(e){}
+      }
+
+      function snapshotModulesForChanges(){
+        if(!window.IX || typeof window.IX.inspect !== 'function') return;
+        // Recorrer todos los módulos registrados (bound + unbound)
+        var codes = [];
+        try {
+          if(typeof window.IX.listBound === 'function'){
+            codes = codes.concat(window.IX.listBound() || []);
+          }
+          if(window.IX.MODULE_SPECS){
+            for(var k in window.IX.MODULE_SPECS){ if(codes.indexOf(k) < 0) codes.push(k); }
+          }
+        } catch(e){}
+        if(!codes.length) return;
+        codes.forEach(function(code){
+          var s;
+          try { s = window.IX.inspect(code); } catch(e){ s = null; }
+          if(!s || !s.snapshot) return;
+          var snapId = s.snapshot.snapId || 0;
+          var prev = stateSold.lastSnapshotByCode[code];
+          if(prev === undefined){
+            stateSold.lastSnapshotByCode[code] = snapId;
+            return; // primera observación, no es transición
+          }
+          if(snapId === prev) return; // sin cambio
+          // Hay transición real: from -> to
+          stateSold.lastSnapshotByCode[code] = snapId;
+          publishSoldArtifact({
+            code: code,
+            snapshot: s.snapshot,
+            fromId: prev,
+            toId: snapId
+          });
+        });
+      }
+
+      function publishSoldArtifact(evt){
+        stateSold.seq++;
+        // Validación honesta: SOLO si el Quality Gate real pasó todos los checks
+        var validated = false;
+        if(typeof state !== 'undefined' && state.qualityGateResults && state.qualityGateResults.length > 0){
+          validated = state.qualityGateResults.every(function(r){ return r.passed; });
+        }
+        var snap = evt.snapshot || {};
+        var artifact = {
+          id: stateSold.seq,
+          op: 'module-snapshot',
+          code: evt.code,
+          internal: snap.internal || 'unknown',
+          health: snap.health || 'unknown',
+          confidence: (typeof snap.confidence === 'number') ? snap.confidence : null,
+          reason: snap.reason || '',
+          ts: Date.now(),
+          txId: snap.snapId,
+          fromId: evt.fromId,
+          toId: evt.toId,
+          validated: validated,
+          // code: serialización literal del snapshot. Marcado como tal.
+          code: '// MODULE SNAPSHOT (no source code produced by kernel)\n' +
+                '// code: ' + evt.code + '\n' +
+                '// from: snap#' + evt.fromId + '  to: snap#' + evt.toId + '\n' +
+                JSON.stringify(snap, null, 2)
+        };
+        stateSold.artifacts.unshift(artifact);
+        if(stateSold.artifacts.length > 50) stateSold.artifacts.pop();
+        renderSoldArtifacts();
+      }
+
+      function renderSoldArtifacts(){
+        var list = $('sold-list');
+        if(!list) return;
+        if(stateSold.artifacts.length === 0){
+          list.innerHTML = '<div class="text-dim text-center" style="padding:8px;font-size:9px">Esperando transiciones de módulos del kernel…</div>';
+          setText('sold-count', '0 artifacts');
+          return;
+        }
+        var html = '';
+        stateSold.artifacts.forEach(function(a){
+          var tsStr = new Date(a.ts).toTimeString().slice(0,8);
+          var nameStr = a.code || '?';
+          var sizeStr = Math.round((a.code || '').length / 1024 * 10) / 10 + ' KB';
+          var stateStr = (a.internal || '?') + ' / ' + (a.health || '?');
+          var badges = '<span class="badge badge-run">✓ SOLD</span>';
+          if(a.validated) badges += ' <span class="badge badge-run">✓ VALIDATED</span>';
+          html += ''
+            + '<div class="sold-card" data-sold-id="'+a.id+'" style="background:#0a0204;border:1px solid #1a0810;border-radius:6px;padding:8px;margin-bottom:6px">'
+            +   '<div class="flex items-center justify-between" style="margin-bottom:4px">'
+            +     '<div class="flex items-center gap-2">'
+            +       '<span style="color:#10b981;font-weight:700;font-size:9px">#'+String(a.id).padStart(3,'0')+'</span>'
+            +       '<span style="color:#a8858a;font-size:9px">'+escapeHtml(nameStr)+'</span>'
+            +     '</div>'
+            +     '<span class="text-8 text-dim">'+tsStr+'</span>'
+            +   '</div>'
+            +   '<div class="flex items-center gap-2" style="margin-bottom:6px">'
+            +     '<span class="text-8 text-dim">'+escapeHtml(stateStr)+' · snap#'+a.fromId+'→#'+a.toId+'</span>'
+            +   '</div>'
+            +   '<div class="flex items-center gap-2" style="margin-bottom:6px">'
+            +     badges
+            +   '</div>'
+            +   '<div class="flex items-center gap-2">'
+            +     '<button class="btn btn-primary sold-open" data-sold-id="'+a.id+'" style="padding:3px 8px;font-size:9px">ABRIR CÓDIGO</button>'
+            +     '<button class="btn sold-copy" data-sold-id="'+a.id+'" style="padding:3px 8px;font-size:9px">COPIAR</button>'
+            +   '</div>'
+            +   '<pre class="sold-code" data-sold-id="'+a.id+'" style="display:none;background:#000;border:1px solid #1a0810;border-radius:4px;padding:6px;font-size:8px;color:#a8858a;max-height:180px;overflow:auto;white-space:pre-wrap;word-break:break-all;margin-top:6px">'+escapeHtml(a.code)+'</pre>'
+            + '</div>';
+        });
+        list.innerHTML = html;
+        setText('sold-count', stateSold.artifacts.length + ' artifact' + (stateSold.artifacts.length===1?'':'s'));
+        // Enganchar listeners de abrir/copiar
+        list.querySelectorAll('.sold-open').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var id = btn.getAttribute('data-sold-id');
+            var pre = list.querySelector('.sold-code[data-sold-id="'+id+'"]');
+            if(pre){
+              var visible = pre.style.display !== 'none';
+              pre.style.display = visible ? 'none' : 'block';
+              btn.textContent = visible ? 'ABRIR CÓDIGO' : 'CERRAR CÓDIGO';
+            }
+          });
+        });
+        list.querySelectorAll('.sold-copy').forEach(function(btn){
+          btn.addEventListener('click', function(){
+            var id = btn.getAttribute('data-sold-id');
+            var a = stateSold.artifacts.find(function(x){ return String(x.id) === id; });
+            if(a && navigator.clipboard && navigator.clipboard.writeText){
+              navigator.clipboard.writeText(a.code || '').then(function(){
+                btn.textContent = '✓ COPIADO';
+                setTimeout(function(){ btn.textContent = 'COPIAR'; }, 1200);
+              });
+            }
+          });
+        });
+      }
+
+      function escapeHtml(s){
+        if(s === null || s === undefined) return '';
+        return String(s)
+          .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+          .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      if(document.readyState === 'loading'){
+        document.addEventListener('DOMContentLoaded', initAll);
+      } else {
+        initAll();
       }
     })();
   </script>
