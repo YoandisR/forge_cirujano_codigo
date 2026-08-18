@@ -1,0 +1,107 @@
+{
+  "name": "centinela-2B-panel100-weld",
+  "version": "1.0.1",
+  "requires": {
+    "kernel": "0.0.0"
+  },
+  "modules": [
+    {
+      "id": "centinela.core.eventBus",
+      "type": "event-bus",
+      "priority": 100,
+      "capabilities": [
+        "events.emit",
+        "events.subscribe",
+        "service.register",
+        "service.version"
+      ],
+      "requirements": [
+        "kernel>=0.0.0"
+      ],
+      "code": "window.EB = new Map(); ctx.declareService('centinela.eventBus', '1.0.0');"
+    },
+    {
+      "id": "centinela.core.registry",
+      "type": "registry",
+      "priority": 100,
+      "capabilities": [
+        "service.register",
+        "service.version"
+      ],
+      "requirements": [
+        "kernel>=0.0.0"
+      ],
+      "code": "window.Registry = new Map([['baseline', '2.0.0']]); ctx.declareService('centinela.registry', '1.0.0');"
+    },
+    {
+      "id": "centinela.repoAnalyzer.provider",
+      "type": "service-provider",
+      "priority": 90,
+      "capabilities": [
+        "service.register",
+        "service.version"
+      ],
+      "requirements": [
+        "kernel>=0.0.0"
+      ],
+      "code": "ctx.declareService('centinela.repoAnalyzer', '1.0.0');"
+    },
+    {
+      "id": "centinela.pluginWorkerSandbox.provider",
+      "type": "service-provider",
+      "priority": 90,
+      "capabilities": [
+        "service.register",
+        "service.version"
+      ],
+      "requirements": [
+        "kernel>=0.0.0"
+      ],
+      "code": "ctx.declareService('centinela.pluginWorkerSandbox', '1.0.0');"
+    },
+    {
+      "id": "centinela.baseline.guard",
+      "type": "baseline-guard",
+      "priority": 50,
+      "dependsOn": [
+        "centinela.core.eventBus",
+        "centinela.core.registry",
+        "centinela.repoAnalyzer.provider",
+        "centinela.pluginWorkerSandbox.provider"
+      ],
+      "capabilities": [
+        "registry.read",
+        "events.emit",
+        "storage.write"
+      ],
+      "requirements": [
+        "service:centinela.repoAnalyzer>=1.0.0",
+        "service:centinela.pluginWorkerSandbox>=1.0.0",
+        "service:centinela.registry>=1.0.0",
+        "kernel>=0.0.0"
+      ],
+      "code": "ctx.storage.set('baseline', 'guard-online'); var repo = require('centinela.repoAnalyzer'); var sandbox = require('centinela.pluginWorkerSandbox'); var baseline = ctx.registry.get('baseline'); ctx.events.emit('guard.ready', { baseline: baseline, repo: repo.version, sandbox: sandbox.version });"
+    },
+    {
+      "id": "centinela.panel100.integration",
+      "type": "ui-integration",
+      "priority": 40,
+      "dependsOn": [
+        "centinela.core.eventBus",
+        "centinela.core.registry",
+        "centinela.repoAnalyzer.provider",
+        "centinela.baseline.guard"
+      ],
+      "capabilities": [
+        "events.emit",
+        "storage.write"
+      ],
+      "requirements": [
+        "service:centinela.repoAnalyzer>=1.0.0",
+        "service:centinela.registry>=1.0.0",
+        "kernel>=0.0.0"
+      ],
+      "code": "// centinela.panel100.integration · Patch C\n// Reglas:\n//   1) injectPanel100() no dispara descarga al final.\n//   2) downloadFile() ya NO usa document.documentElement.outerHTML.\n//   3) downloadFile() NO inventa window.__FORGE_WB__ / __FORGE_LAST_TX__\n//      (esos no existen durante _weld() — el txResult committed no se\n//       produce hasta después de que injectPanel100() retorna).\n//   4) downloadFile() se queda como stub que emite panel100.downloaded\n//      con ok:false y razón explícita. Si en el futuro ForgeContext\n//      expone un capability real de exportación post-commit, se conecta ahí.\n\nconst injectPanel100 = function() {\n  const configView = document.getElementById('v-config');\n  if (!configView) {\n    ctx.events.emit('panel100.error', { error: 'No se encontró la vista de configuración de Core-Termux' });\n    return;\n  }\n  if (document.getElementById('p100-container')) {\n    ctx.events.emit('panel100.already_injected');\n    return;\n  }\n  const container = document.createElement('div');\n  container.id = 'p100-container';\n  container.className = 'p100-shell';\n  container.style.cssText = 'padding: var(--pad); display: flex; flex-direction: column; gap: 12px;';\n  container.innerHTML = `\n    <div class=\"view-h\" style=\"color: var(--cyan);\">\n      <span>📦 Panel 100 · core-termux mirror</span>\n      <span class=\"pill cyan\">F3.5.4-LIVE</span>\n    </div>\n    <div class=\"view-sub\">Espejo operacional del repositorio DevCoreXOfficial/core-termux</div>\n    <div class=\"stats-grid\" id=\"p100-stats\"></div>\n    <div class=\"split\">\n      <div class=\"card\"><div class=\"card-h\">🔗 Dependencias <span class=\"badge\" id=\"p100-deps-count\">0</span></div><div id=\"p100-deps-list\"></div></div>\n      <div class=\"card\"><div class=\"card-h\">🤖 AI Catalog <span class=\"badge\" id=\"p100-ai-count\">0</span></div><div id=\"p100-ai-list\"></div></div>\n    </div>\n    <div class=\"card\"><div class=\"card-h\">⚡ Comandos CLI <span class=\"badge\" id=\"p100-cli-count\">0</span></div><div id=\"p100-cli-list\"></div></div>\n    <div class=\"notice success\">Panel 100 integrado como espejo operativo. Datos reales desde GitHub.</div>\n  `;\n  configView.appendChild(container);\n\n  const repo = require('centinela.repoAnalyzer');\n  if (repo && repo.cache) {\n    const data = repo.cache;\n    const stats = data.stats || {};\n    const deps = data.deps || [];\n    const ai = data.aiCatalog || [];\n    const cli = data.cliCommands || [];\n\n    const statsEl = document.getElementById('p100-stats');\n    if (statsEl) {\n      statsEl.innerHTML = `\n        <div class=\"stat\"><div class=\"stat-l\">📄 Archivos</div><div class=\"stat-v\">${stats.totalFiles || 0}</div></div>\n        <div class=\"stat blue\"><div class=\"stat-l\">🔗 Dependencias</div><div class=\"stat-v\">${stats.totalDeps || 0}</div></div>\n        <div class=\"stat purple\"><div class=\"stat-l\">🤖 AI Tools</div><div class=\"stat-v\">${stats.totalAi || 0}</div></div>\n        <div class=\"stat green\"><div class=\"stat-l\">⚡ Comandos</div><div class=\"stat-v\">${stats.totalCommands || 0}</div></div>\n      `;\n    }\n\n    const depsList = document.getElementById('p100-deps-list');\n    const depsCount = document.getElementById('p100-deps-count');\n    if (depsCount) depsCount.textContent = deps.length;\n    if (depsList) {\n      depsList.innerHTML = deps.slice(0, 30).map(d => `\n        <div class=\"dep-row clickable\">\n          <span class=\"dep-name\">${d.name}</span>\n          <span class=\"dep-ver\">${d.version || '?'}</span>\n          <span class=\"dep-type\">${d.type || ''}</span>\n          <span class=\"dep-state ${d.version ? 'declared' : 'unknown'}\">${d.version ? '📌 DECLARED' : '⚪ UNKNOWN'}</span>\n        </div>\n      `).join('') || '<div class=\"empty\">Sin dependencias.</div>';\n    }\n\n    const aiList = document.getElementById('p100-ai-list');\n    const aiCount = document.getElementById('p100-ai-count');\n    if (aiCount) aiCount.textContent = ai.length;\n    if (aiList) {\n      aiList.innerHTML = ai.map(t => `\n        <div class=\"ai-row\">\n          <div class=\"left\"><span class=\"name\">${t.nombre}</span><span class=\"flag\">--${t.flag}</span></div>\n          <div class=\"right\">${(t.sha||'').substring(0,7)}</div>\n        </div>\n      `).join('') || '<div class=\"empty\">Sin AI tools.</div>';\n    }\n\n    const cliList = document.getElementById('p100-cli-list');\n    const cliCount = document.getElementById('p100-cli-count');\n    if (cliCount) cliCount.textContent = cli.length;\n    if (cliList) {\n      cliList.innerHTML = cli.map(c => `<span class=\"chip\">${c.name}</span>`).join('') || '<div class=\"empty\">Sin comandos.</div>';\n    }\n\n    ctx.events.emit('panel100.loaded', { stats, deps: deps.length, ai: ai.length, cli: cli.length });\n  }\n  // Patch C: NO se llama a downloadFile() al final. La inyección del panel\n  // no produce ningún artefacto. La exportación canónica la dispara\n  // ForgeWeldExport tras txEngine.commit().\n};\n\nconst downloadFile = function() {\n  // Patch C: downloadFile() ya no es un mecanismo de descarga paralelo.\n  // No usa document.documentElement.outerHTML. No construye un Blob del DOM.\n  // No delega a ForgeWeldExport.exportCommittedWeld (durante _weld() no hay\n  // txResult committed, y desde el módulo no tenemos acceso al workbench).\n  //\n  // Si en el futuro ForgeContext expone un capability real de exportación\n  // post-commit, este stub se conecta ahí. Por ahora, emite\n  // panel100.downloaded con ok:false y razón explícita.\n  ctx.events.emit('panel100.downloaded', {\n    ok: false,\n    reason: 'downloadFile() deshabilitado por Patch C. La exportación canónica del commit la realiza ForgeWeldExport, no el módulo. Pulse \"Soldar Módulos\" en el Forge Workbench para obtener el artefacto forge-soldado-*.html.'\n  });\n};\n\ntry { injectPanel100(); } catch(e) { ctx.events.emit('panel100.error', { error: e.message }); }\n"
+    }
+  ]
+}
