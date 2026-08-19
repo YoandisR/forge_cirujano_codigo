@@ -38,8 +38,9 @@ OTROS TRATOS EN EL SOFTWARE.
 - Forge Kernel v3.2 RC-2 — Gobernanza Completa
 - 15/15 invariantes constitucionales
 - 17 módulos enlazados (bound)
-- 14/14 diagnósticos en verde (diag11, diag13, diag15, diag16, diag17, diag20,
-  diag20a, diag21a, diag21b, diag22, diag23, diag24, diag25, diag26b)
+- 14/14 diagnósticos en evidencia durante el desarrollo (diag11, diag13,
+  diag15, diag16, diag17, diag20, diag20a, diag21a, diag21b, diag22,
+  diag23, diag24, diag25, diag26b) — ver *Diagnósticos y validación*
 - QG-INT-01 cerrado: `QualityGateSwitch` y `kernelQG.runAll()` ahora comparten
   la misma semántica observable sobre `kernelQG.results`.
 - Analysis Suite integrada (IIFE local, no es un módulo constitucional).
@@ -64,6 +65,207 @@ La Analysis Suite se implementa como un controlador IIFE local
 (`analysisUI`) que consume el grafo real del kernel (`forgeUI.graph`) y
 los resultados del QualityGate (`kernelQG.results`). No está registrada
 como módulo y no declara capacidades.
+
+## Manifiesto Forge — Centinela 2B / Panel 100
+
+Este repositorio incluye un manifiesto Forge canónico para la
+integración de Centinela 2B con el Forge Kernel:
+
+`manifests/centinela-2B-panel100-weld.v1.0.1.json`
+
+### Identidad
+
+| Campo              | Valor                                       |
+|--------------------|---------------------------------------------|
+| Nombre             | `centinela-2B-panel100-weld`                |
+| Versión            | `1.0.1`                                     |
+| Kernel requerido   | `0.0.0`                                     |
+| Módulos            | `6`                                         |
+| Estado             | Validado / publicado                        |
+| Formato            | JSON compatible con Forge                   |
+| Patch              | C                                           |
+| Commit publicación | `2868f3d`                                   |
+
+El manifiesto es el artefacto declarativo que describe los módulos de
+Centinela que Forge debe validar, ordenar y soldar. No sustituye la
+constitución del kernel: actúa como entrada de módulos para el
+proceso de Forge Weld.
+
+### Ubicación
+
+El manifiesto canónico se encuentra en:
+
+```text
+manifests/
+└── centinela-2B-panel100-weld.v1.0.1.json
+```
+
+Los usuarios que clonen este repositorio no necesitan reconstruir
+manualmente el JSON ni crear un manifiesto desde cero. El archivo
+incluido en este repositorio es el formato de referencia para esta
+integración.
+
+### Módulos declarados
+
+El manifiesto contiene seis módulos:
+
+| #  | ID                                       | Tipo              | Prioridad |
+|----|------------------------------------------|-------------------|-----------|
+| 1  | `centinela.core.eventBus`                | `event-bus`       | 100       |
+| 2  | `centinela.core.registry`                | `registry`        | 100       |
+| 3  | `centinela.repoAnalyzer.provider`        | `service-provider`| 90        |
+| 4  | `centinela.pluginWorkerSandbox.provider` | `service-provider`| 90        |
+| 5  | `centinela.baseline.guard`               | `baseline-guard`  | 50        |
+| 6  | `centinela.panel100.integration`         | `ui-integration`  | 40        |
+
+El orden de prioridad permite que Forge procese primero las piezas
+fundamentales del EventBus y Registry, después los proveedores de
+servicios y finalmente las capas dependientes.
+
+### Dependencias
+
+`centinela.baseline.guard` depende de:
+
+- `centinela.core.eventBus`
+- `centinela.core.registry`
+- `centinela.repoAnalyzer.provider`
+- `centinela.pluginWorkerSandbox.provider`
+
+`centinela.panel100.integration` depende de:
+
+- `centinela.core.eventBus`
+- `centinela.core.registry`
+- `centinela.repoAnalyzer.provider`
+- `centinela.baseline.guard`
+
+Forge utiliza estas relaciones para resolver el orden de ejecución
+y validar que los servicios requeridos estén disponibles antes de
+soldar los módulos.
+
+### Capabilities
+
+El manifiesto declara las capabilities que cada módulo puede
+utilizar. Entre ellas se encuentran:
+
+- `events.emit`
+- `events.subscribe`
+- `service.register`
+- `service.version`
+- `registry.read`
+- `storage.write`
+
+Las capabilities declaradas en el manifiesto no constituyen por sí
+solas una autorización global. El kernel mantiene la gobernanza de
+capacidades y valida las invocaciones mediante su sistema de
+Capability Tokens.
+
+### Requirements
+
+Los módulos declaran requisitos explícitos sobre el kernel y sobre
+los servicios proporcionados por otros módulos. Ejemplos:
+
+- `kernel>=0.0.0`
+- `service:centinela.repoAnalyzer>=1.0.0`
+- `service:centinela.pluginWorkerSandbox>=1.0.0`
+- `service:centinela.registry>=1.0.0`
+
+Esto permite que Forge rechace una soldadura cuando los requisitos
+declarados no puedan satisfacerse.
+
+### Patch C — integración Panel 100
+
+La versión `1.0.1` contiene el **Patch C** de
+`centinela.panel100.integration`.
+
+El objetivo principal del patch es eliminar la exportación paralela
+del DOM mediante `document.documentElement.outerHTML`. En
+particular:
+
+1. `injectPanel100()` no inicia una descarga automáticamente.
+2. `downloadFile()` ya no captura `outerHTML`.
+3. `downloadFile()` no inventa ni depende de `window.__FORGE_WB__`
+   o `window.__FORGE_LAST_TX__`.
+4. La exportación canónica del artefacto se realiza mediante
+   `ForgeWeldExport` después del `commit()` de la transacción.
+5. El stub `downloadFile()` emite `panel100.downloaded` con
+   `ok:false` y una razón explícita en lugar de generar un
+   artefacto paralelo.
+
+Esto mantiene una única ruta canónica de exportación para los
+artefactos producidos por Forge Weld.
+
+### Flujo recomendado para usuarios
+
+Si has descargado o clonado este repositorio y quieres utilizar la
+integración Centinela 2B / Panel 100:
+
+1. Conserva `forge-in01.html` como el kernel objetivo.
+2. Conserva el manifiesto en
+   `manifests/centinela-2B-panel100-weld.v1.0.1.json`.
+3. Carga el manifiesto mediante el flujo de entrada de Forge.
+4. Deja que Forge valide el esquema, requirements, dependencias y
+   capabilities.
+5. Ejecuta la operación de soldadura desde Forge Workbench.
+6. Utiliza el artefacto canónico generado después del commit.
+
+No es necesario copiar manualmente los seis módulos dentro del HTML
+ni reconstruir el JSON.
+
+### Validación del manifiesto
+
+El manifiesto publicado fue validado como JSON válido y contiene
+exactamente seis módulos:
+
+```text
+JSON VALID: PASS
+modules:    6
+```
+
+La identificación publicada del archivo corresponde a:
+
+```text
+name:     centinela-2B-panel100-weld
+version:  1.0.1
+modules:  6
+```
+
+**SHA-256 del archivo publicado en esta versión:**
+
+```
+3c51329d571d76be23b7d882d9fe99f2f702ba65f30523c3c01585414d17c9a8
+```
+
+Esta validación (identidad, hashes de los seis módulos y auditoría
+de capabilities) se realizó durante el desarrollo. Este repositorio
+no incluye todavía un script de verificación automática ejecutable
+desde el clon; por ahora, la comprobación reproducible por un usuario
+se limita a confirmar el SHA-256 anterior contra el archivo del
+manifest.
+
+### Compatibilidad y fuente de verdad
+
+Para esta integración, el archivo:
+
+```text
+manifests/centinela-2B-panel100-weld.v1.0.1.json
+```
+
+es la **referencia canónica** del manifiesto publicado. No se
+recomienda crear variantes con nombres ambiguos ni utilizar copias
+modificadas como sustituto del manifiesto canónico sin incrementar
+su versión.
+
+Si el contrato de los módulos, sus capabilities, requirements,
+dependencias o código cambia de forma incompatible, debe
+publicarse una nueva versión del manifiesto.
+
+### Publicación
+
+La versión `1.0.1` fue publicada en `main` mediante el commit:
+
+```
+2868f3db4f09125de76d1373f9b9589dcdec7a32
+```
 
 ## Módulos (17)
 
@@ -95,10 +297,12 @@ columna *Función* está tomada textualmente de la descripción
 
 ## Diagnósticos (14)
 
-Cada diagnóstico es un script Node independiente en `/workspace/diag*.js`
-que dirige Playwright contra el kernel y verifica invariantes. Los 14
-son reproducibles mediante `bash run-diags.sh` (ver *Cómo ejecutar los
-diagnósticos*).
+Cada diagnóstico es un script Node independiente que dirigió Playwright
+contra el kernel durante el desarrollo y verificó invariantes. Los 14
+diagnósticos se ejecutaron en el entorno de desarrollo (no en este
+repositorio) y aportaron la evidencia de 14/14 PASS que acompaña a
+este build. Ver *Diagnósticos y validación* abajo para el detalle del
+alcance.
 
 | Diagnóstico | Verifica |
 |---|---|
@@ -116,6 +320,41 @@ diagnósticos*).
 | `diag24` | Versionado semántico: `IX.VERSION` es un objeto congelado, `IX.assertCompatibility` rechaza contratos obsoletos. |
 | `diag25` | Analysis Suite E2E: Dependencias, Seguridad, Cobertura y Refresh operan sobre datos reales del kernel (grafo + meta.raw + kernelQG.results). |
 | `diag26b` | QG-INT-01 POST-fix: el switch y `runAll()` producen la misma semántica observable sobre `kernelQG.results`. |
+
+## Diagnósticos y validación
+
+El estado declarado de **Forge Kernel v3.2 RC-2** fue validado en el
+entorno de desarrollo mediante diagnósticos independientes. Esos
+diagnósticos (`diag11`, `diag13`, `diag15`, `diag16`, `diag17`,
+`diag20`, `diag20a`, `diag21a`, `diag21b`, `diag22`, `diag23`,
+`diag24`, `diag25`, `diag26b`) se ejecutaron contra el kernel
+durante el proceso de desarrollo y aportaron la evidencia de
+**14/14 PASS** que acompaña a este build.
+
+Estos scripts **pertenecen al entorno de validación de desarrollo**
+y **no forman parte del contenido publicado en este repositorio**.
+Las rutas `/workspace/diag*.js` y `/workspace/run-diags.sh` se
+mencionan aquí únicamente como referencia histórica y **no deben
+interpretarse como instrucciones reproducibles** para una
+instalación obtenida mediante `git clone` de este repositorio.
+
+El resultado 14/14 PASS constituye **evidencia del estado validado
+del build durante el desarrollo**, no una afirmación de que los
+diagnósticos puedan ejecutarse directamente desde el repositorio
+clonado.
+
+### Reproducibilidad desde el clon
+
+La única verificación del estado del build que un usuario puede
+reproducir desde un clon de este repositorio es la confirmación del
+**SHA-256 del manifest publicado**:
+
+```
+3c51329d571d76be23b7d882d9fe99f2f702ba65f30523c3c01585414d17c9a8
+```
+
+Ese valor se publica junto con la versión 1.0.1 del manifest y
+constituye la fuente de verdad verificable de esa release.
 
 ## Reglas para contribuir
 
@@ -157,31 +396,12 @@ Romperlas debe ser una decisión deliberada, no un accidente.
    conserva como evidencia histórica inmutable; `diag26b` documenta
    la semántica post-fix.
 
-## Cómo ejecutar los diagnósticos
-
-```bash
-NODE_PATH=/usr/local/lib/node_modules node /workspace/diag11.js
-NODE_PATH=/usr/local/lib/node_modules node /workspace/diag25.js
-NODE_PATH=/usr/local/lib/node_modules node /workspace/diag26b.js
-```
-
-Cada diagnóstico debe imprimir una línea `PASS` para considerar el
-build en verde. El estado actual es **14/14 PASS**.
-
-Hay un runner portable disponible:
-
-```bash
-bash /workspace/run-diags.sh                              # target por defecto
-bash /workspace/run-diags.sh /ruta/a/forge-in01.html      # target explícito
-TARGET=/ruta/a/forge-in01.html bash /workspace/run-diags.sh  # target por env
-```
-
-El runner auto-detecta el binario de Chromium vía `CHROMIUM_PATH` o
-`playwright.chromium.executablePath()`.
-
 ## Archivos en este directorio
 
 - `forge-in01.html` — el monolito del kernel (archivo único, ~13,150 líneas).
+- `manifests/centinela-2B-panel100-weld.v1.0.1.json` — manifiesto
+  canónico de la integración Centinela 2B · Panel 100, validado y
+  publicado.
 - `README.md` — este archivo.
 
 ## Reporte de errores
